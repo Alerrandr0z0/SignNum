@@ -1,0 +1,17 @@
+{
+  "name": "signnum",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve . -p 8080",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:rebuild": "docker compose build --no-cache && docker compose up -d",
+    "lint": "biome check js/",
+    "format": "biome format --write js/",
+    "check": "biome check --write js/"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  }
+}
