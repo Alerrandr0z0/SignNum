@@ -206,8 +206,8 @@ function detectNumber(st, lm2d, localLm, palmSize) {
     if (
       indexStraightness < 0.94 ||
       middleStraightness < 0.94 ||
-      indexLength2D < 0.82 ||
-      middleLength2D < 0.82
+      indexLength2D < 0.72 ||
+      middleLength2D < 0.72
     ) {
       return 5;
     }
