@@ -175,27 +175,50 @@ function detectNumber(st, lm2d, localLm, palmSize) {
   if (is(st.index, 'E') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) return 1;
 
   // 5: Duas orelhas de coelho dobradas - Indicador + Médio em gancho (H ou E sob distorção do Z), mindinho fechado/dobrado, polegar livre
-  if ((is(st.index, 'E') || is(st.index, 'H')) && 
-      (is(st.middle, 'E') || is(st.middle, 'H')) && 
-      (is(st.pinky, 'C') || is(st.pinky, 'H'))) {
-    const indexStraightness = getFingerStraightness(localLm, LM.INDEX_MCP, LM.INDEX_PIP, LM.INDEX_DIP, LM.INDEX_TIP);
-    const middleStraightness = getFingerStraightness(localLm, LM.MIDDLE_MCP, LM.MIDDLE_PIP, LM.MIDDLE_DIP, LM.MIDDLE_TIP);
+  if (
+    (is(st.index, 'E') || is(st.index, 'H')) &&
+    (is(st.middle, 'E') || is(st.middle, 'H')) &&
+    (is(st.pinky, 'C') || is(st.pinky, 'H'))
+  ) {
+    const indexStraightness = getFingerStraightness(
+      localLm,
+      LM.INDEX_MCP,
+      LM.INDEX_PIP,
+      LM.INDEX_DIP,
+      LM.INDEX_TIP,
+    );
+    const middleStraightness = getFingerStraightness(
+      localLm,
+      LM.MIDDLE_MCP,
+      LM.MIDDLE_PIP,
+      LM.MIDDLE_DIP,
+      LM.MIDDLE_TIP,
+    );
     if (indexStraightness < 0.94 && middleStraightness < 0.94) {
       return 5;
     }
   }
 
   // 2 e 3: Ambos possuem Indicador + Médio estendidos e Anelar + Mindinho fechados.
-  // Distinguimos pelo afastamento lateral do polegar (thumbX).
-  if (is(st.index, 'E') && is(st.middle, 'E') && 
-      (is(st.ring, 'C') || is(st.ring, 'H')) && 
-      (is(st.pinky, 'C') || is(st.pinky, 'H'))) {
-    const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
-    if (Math.abs(thumbX) >= 0.32) {
-      return 3;
-    } else {
-      return 2;
-    }
+  // No sinal de 3 do LIBRAS, os dedos estendidos são Indicador, Médio e Anelar (conforme a folha de referência).
+  // Portanto, verificamos se o Anelar está E para retornar 3.
+  if (
+    is(st.index, 'E') &&
+    is(st.middle, 'E') &&
+    is(st.ring, 'E') &&
+    (is(st.pinky, 'C') || is(st.pinky, 'H'))
+  ) {
+    return 3;
+  }
+
+  // 2: Indicador + Médio estendidos (V da paz)
+  if (
+    is(st.index, 'E') &&
+    is(st.middle, 'E') &&
+    (is(st.ring, 'C') || is(st.ring, 'H')) &&
+    (is(st.pinky, 'C') || is(st.pinky, 'H'))
+  ) {
+    return 2;
   }
 
   // 4: Indicador + Médio + Anelar + Mindinho estendidos.
@@ -209,11 +232,16 @@ function detectNumber(st, lm2d, localLm, palmSize) {
 
   // 7: Polegar e Indicador estendidos (L invertido), apontando para BAIXO.
   // Se o indicador está apontando para baixo, ele pode ser classificado como C ou H devido a distorção local.
-  // Usamos a flexão da junta PIP do indicador (indexFlex > 140) para confirmar que ele está reto.
-  if (is(st.thumb, 'E') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) {
+  // Usamos a flexão da junta PIP do indicador (indexFlex > 130) para confirmar que ele está reto.
+  if (
+    is(st.thumb, 'E') &&
+    (is(st.middle, 'C') || is(st.middle, 'H')) &&
+    (is(st.ring, 'C') || is(st.ring, 'H')) &&
+    (is(st.pinky, 'C') || is(st.pinky, 'H'))
+  ) {
     const indexFlex = getJointAngle(localLm, LM.INDEX_MCP, LM.INDEX_PIP, LM.INDEX_DIP);
     const pointingDown = lm2d[LM.INDEX_TIP].y > lm2d[LM.INDEX_MCP].y;
-    if (pointingDown && indexFlex > 140) {
+    if (pointingDown && indexFlex > 130) {
       return 7;
     }
   }
@@ -320,8 +348,20 @@ function getDebugSnapshot(worldLandmarks, lm2d, isRightHand) {
   const palmSize = dist3(worldLandmarks[LM.WRIST], worldLandmarks[LM.MIDDLE_MCP]);
   const st = getFingerStates(localLm, palmSize);
 
-  const indexStr = getFingerStraightness(localLm, LM.INDEX_MCP, LM.INDEX_PIP, LM.INDEX_DIP, LM.INDEX_TIP).toFixed(2);
-  const middleStr = getFingerStraightness(localLm, LM.MIDDLE_MCP, LM.MIDDLE_PIP, LM.MIDDLE_DIP, LM.MIDDLE_TIP).toFixed(2);
+  const indexStr = getFingerStraightness(
+    localLm,
+    LM.INDEX_MCP,
+    LM.INDEX_PIP,
+    LM.INDEX_DIP,
+    LM.INDEX_TIP,
+  ).toFixed(2);
+  const middleStr = getFingerStraightness(
+    localLm,
+    LM.MIDDLE_MCP,
+    LM.MIDDLE_PIP,
+    LM.MIDDLE_DIP,
+    LM.MIDDLE_TIP,
+  ).toFixed(2);
 
   const localY = {
     index: `${((localLm[LM.INDEX_TIP].y - localLm[LM.INDEX_MCP].y) / palmSize).toFixed(2)} (s:${indexStr})`,
