@@ -104,6 +104,15 @@ function getJointAngle(lm, a, b, c) {
   return (Math.acos(Math.max(-1, Math.min(1, dot(v1, v2) / m))) * 180) / Math.PI;
 }
 
+// Calculates the ratio of straight-line distance from MCP to TIP vs the sum of finger segments.
+// 1.0 means perfectly straight, < 0.90 means bent/hooked.
+function getFingerStraightness(lm, mcp, pip, dip, tip) {
+  const dDirect = dist3(lm[mcp], lm[tip]);
+  const dTrack = dist3(lm[mcp], lm[pip]) + dist3(lm[pip], lm[dip]) + dist3(lm[dip], lm[tip]);
+  if (dTrack < 1e-9) return 0;
+  return dDirect / dTrack;
+}
+
 // ─── Finger State Classification ─────────────────────────────────────────────
 //
 // Evaluates finger curl/extension using local Y coordinates.
@@ -165,6 +174,17 @@ function detectNumber(st, lm2d, localLm, palmSize) {
   // 1: Apenas Indicador estendido (Ignoramos o polegar para permitir que fique em qualquer posição lateral)
   if (is(st.index, 'E') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) return 1;
 
+  // 5: Duas orelhas de coelho dobradas - Indicador + Médio em gancho (H ou E sob distorção do Z), mindinho fechado/dobrado, polegar livre
+  if ((is(st.index, 'E') || is(st.index, 'H')) && 
+      (is(st.middle, 'E') || is(st.middle, 'H')) && 
+      (is(st.pinky, 'C') || is(st.pinky, 'H'))) {
+    const indexStraightness = getFingerStraightness(localLm, LM.INDEX_MCP, LM.INDEX_PIP, LM.INDEX_DIP, LM.INDEX_TIP);
+    const middleStraightness = getFingerStraightness(localLm, LM.MIDDLE_MCP, LM.MIDDLE_PIP, LM.MIDDLE_DIP, LM.MIDDLE_TIP);
+    if (indexStraightness < 0.94 && middleStraightness < 0.94) {
+      return 5;
+    }
+  }
+
   // 2: Indicador + Médio estendidos (V da paz)
   if (is(st.index, 'E') && is(st.middle, 'E') && is(st.ring, 'C') && is(st.pinky, 'C')) return 2;
 
@@ -176,17 +196,6 @@ function detectNumber(st, lm2d, localLm, palmSize) {
   // 4: Indicador + Médio + Anelar + Mindinho estendidos E polegar obrigatoriamente fechado/dobrado
   if (is(st.index, 'E') && is(st.middle, 'E') && is(st.ring, 'E') && is(st.pinky, 'E') && 
       (is(st.thumb, 'C') || is(st.thumb, 'H'))) return 4;
-
-  // 5: Duas orelhas de coelho dobradas - Indicador + Médio em gancho (H ou E sob distorção do Z), mindinho fechado/dobrado, polegar livre
-  if ((is(st.index, 'E') || is(st.index, 'H')) && 
-      (is(st.middle, 'E') || is(st.middle, 'H')) && 
-      (is(st.pinky, 'C') || is(st.pinky, 'H'))) {
-    const indexFlex = getJointAngle(localLm, LM.INDEX_MCP, LM.INDEX_PIP, LM.INDEX_DIP);
-    const middleFlex = getJointAngle(localLm, LM.MIDDLE_MCP, LM.MIDDLE_PIP, LM.MIDDLE_DIP);
-    if (indexFlex < 140 && middleFlex < 140) {
-      return 5;
-    }
-  }
 
   // 7: Polegar e Indicador estendidos (L invertido), apontando para BAIXO.
   // Se o indicador está apontando para baixo, ele pode ser classificado como C ou H devido a distorção local.
@@ -301,9 +310,12 @@ function getDebugSnapshot(worldLandmarks, lm2d, isRightHand) {
   const palmSize = dist3(worldLandmarks[LM.WRIST], worldLandmarks[LM.MIDDLE_MCP]);
   const st = getFingerStates(localLm, palmSize);
 
+  const indexStr = getFingerStraightness(localLm, LM.INDEX_MCP, LM.INDEX_PIP, LM.INDEX_DIP, LM.INDEX_TIP).toFixed(2);
+  const middleStr = getFingerStraightness(localLm, LM.MIDDLE_MCP, LM.MIDDLE_PIP, LM.MIDDLE_DIP, LM.MIDDLE_TIP).toFixed(2);
+
   const localY = {
-    index: ((localLm[LM.INDEX_TIP].y - localLm[LM.INDEX_MCP].y) / palmSize).toFixed(2),
-    middle: ((localLm[LM.MIDDLE_TIP].y - localLm[LM.MIDDLE_MCP].y) / palmSize).toFixed(2),
+    index: `${((localLm[LM.INDEX_TIP].y - localLm[LM.INDEX_MCP].y) / palmSize).toFixed(2)} (s:${indexStr})`,
+    middle: `${((localLm[LM.MIDDLE_TIP].y - localLm[LM.MIDDLE_MCP].y) / palmSize).toFixed(2)} (s:${middleStr})`,
     ring: ((localLm[LM.RING_TIP].y - localLm[LM.RING_MCP].y) / palmSize).toFixed(2),
     pinky: ((localLm[LM.PINKY_TIP].y - localLm[LM.PINKY_MCP].y) / palmSize).toFixed(2),
   };
