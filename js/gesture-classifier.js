@@ -234,20 +234,15 @@ function detectNumber(st, lm2d, localLm, palmSize) {
   }
 
   // 7: Polegar e Indicador estendidos (L invertido), apontando para BAIXO.
-  // Se o indicador está apontando para baixo, ele pode ser classificado como C ou H devido a distorção local.
-  // Usamos a distância 2D do indicador para garantir que ele está estendido e a dos outros dedos para garantir que estão dobrados.
+  // Usamos proporções em 2D normalizadas pelo tamanho da palma em 2D (palmSize2D) para garantir robustez.
   if (is(st.thumb, 'E')) {
+    const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
     const indexPointingDown = lm2d[LM.INDEX_TIP].y > lm2d[LM.INDEX_MCP].y;
-    const indexLength2d = dist2(lm2d[LM.INDEX_MCP], lm2d[LM.INDEX_TIP]) / palmSize;
-    const middleLength2d = dist2(lm2d[LM.MIDDLE_MCP], lm2d[LM.MIDDLE_TIP]) / palmSize;
-    const pinkyLength2d = dist2(lm2d[LM.PINKY_MCP], lm2d[LM.PINKY_TIP]) / palmSize;
+    const indexLength2d = dist2(lm2d[LM.INDEX_MCP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+    const middleLength2d = dist2(lm2d[LM.MIDDLE_MCP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+    const pinkyLength2d = dist2(lm2d[LM.PINKY_MCP], lm2d[LM.PINKY_TIP]) / palmSize2D;
 
-    if (
-      indexPointingDown &&
-      indexLength2d > 0.48 &&
-      middleLength2d < 0.45 &&
-      pinkyLength2d < 0.45
-    ) {
+    if (indexPointingDown && indexLength2d > 0.8 && middleLength2d < 0.65 && pinkyLength2d < 0.65) {
       return 7;
     }
   }
