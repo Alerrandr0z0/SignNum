@@ -197,7 +197,18 @@ function detectNumber(st, lm2d, localLm, palmSize) {
       LM.MIDDLE_DIP,
       LM.MIDDLE_TIP,
     );
-    if (indexStraightness < 0.94 && middleStraightness < 0.94) {
+
+    // Calculamos o comprimento 2D projetado para detectar ganchos mesmo se o MediaPipe estimar as juntas como retas em 3D.
+    const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
+    const indexLength2D = dist2(lm2d[LM.INDEX_MCP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+    const middleLength2D = dist2(lm2d[LM.MIDDLE_MCP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+
+    if (
+      indexStraightness < 0.94 ||
+      middleStraightness < 0.94 ||
+      indexLength2D < 0.82 ||
+      middleLength2D < 0.82
+    ) {
       return 5;
     }
   }
