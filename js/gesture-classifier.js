@@ -234,15 +234,22 @@ function detectNumber(st, lm2d, localLm, palmSize) {
   }
 
   // 7: Polegar e Indicador estendidos (L invertido), apontando para BAIXO.
-  // Usamos proporções em 2D normalizadas pelo tamanho da palma em 2D (palmSize2D) para garantir robustez.
+  // Usamos diferenças no eixo Y em 2D para garantir robustez e independência de inclinação da mão.
   if (is(st.thumb, 'E')) {
     const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
     const indexPointingDown = lm2d[LM.INDEX_TIP].y > lm2d[LM.INDEX_MCP].y;
-    const indexLength2d = dist2(lm2d[LM.INDEX_MCP], lm2d[LM.INDEX_TIP]) / palmSize2D;
-    const middleLength2d = dist2(lm2d[LM.MIDDLE_MCP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
-    const pinkyLength2d = dist2(lm2d[LM.PINKY_MCP], lm2d[LM.PINKY_TIP]) / palmSize2D;
+    const indexLength2d = (lm2d[LM.INDEX_TIP].y - lm2d[LM.INDEX_MCP].y) / palmSize2D;
+    const indexMiddleYDiff = (lm2d[LM.INDEX_TIP].y - lm2d[LM.MIDDLE_TIP].y) / palmSize2D;
+    const indexRingYDiff = (lm2d[LM.INDEX_TIP].y - lm2d[LM.RING_TIP].y) / palmSize2D;
+    const indexPinkyYDiff = (lm2d[LM.INDEX_TIP].y - lm2d[LM.PINKY_TIP].y) / palmSize2D;
 
-    if (indexPointingDown && indexLength2d > 0.8 && middleLength2d < 0.65 && pinkyLength2d < 0.65) {
+    if (
+      indexPointingDown &&
+      indexLength2d > 0.45 &&
+      indexMiddleYDiff > 0.18 &&
+      indexRingYDiff > 0.18 &&
+      indexPinkyYDiff > 0.18
+    ) {
       return 7;
     }
   }
