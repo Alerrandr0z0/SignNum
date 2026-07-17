@@ -185,17 +185,27 @@ function detectNumber(st, lm2d, localLm, palmSize) {
     }
   }
 
-  // 2: Indicador + Médio estendidos (V da paz)
-  if (is(st.index, 'E') && is(st.middle, 'E') && is(st.ring, 'C') && is(st.pinky, 'C')) return 2;
-
-  // 3: Polegar + Indicador + Médio estendidos (conforme a imagem de referência do LIBRAS)
-  if (is(st.thumb, 'E') && is(st.index, 'E') && is(st.middle, 'E') && 
+  // 2 e 3: Ambos possuem Indicador + Médio estendidos e Anelar + Mindinho fechados.
+  // Distinguimos pelo afastamento lateral do polegar (thumbX).
+  if (is(st.index, 'E') && is(st.middle, 'E') && 
       (is(st.ring, 'C') || is(st.ring, 'H')) && 
-      (is(st.pinky, 'C') || is(st.pinky, 'H'))) return 3;
+      (is(st.pinky, 'C') || is(st.pinky, 'H'))) {
+    const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
+    if (Math.abs(thumbX) >= 0.32) {
+      return 3;
+    } else {
+      return 2;
+    }
+  }
 
-  // 4: Indicador + Médio + Anelar + Mindinho estendidos E polegar obrigatoriamente fechado/dobrado
-  if (is(st.index, 'E') && is(st.middle, 'E') && is(st.ring, 'E') && is(st.pinky, 'E') && 
-      (is(st.thumb, 'C') || is(st.thumb, 'H'))) return 4;
+  // 4: Indicador + Médio + Anelar + Mindinho estendidos.
+  // O polegar deve estar recolhido sobre a palma (thumbX < 0.32) para distinguir da palma aberta (não numérica).
+  if (is(st.index, 'E') && is(st.middle, 'E') && is(st.ring, 'E') && is(st.pinky, 'E')) {
+    const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
+    if (Math.abs(thumbX) < 0.32) {
+      return 4;
+    }
+  }
 
   // 7: Polegar e Indicador estendidos (L invertido), apontando para BAIXO.
   // Se o indicador está apontando para baixo, ele pode ser classificado como C ou H devido a distorção local.
