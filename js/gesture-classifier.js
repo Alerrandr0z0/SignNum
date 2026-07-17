@@ -51,6 +51,9 @@ function normalize(v) {
 function dist3(a, b) {
   return mag(sub(a, b));
 }
+function dist2(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
 
 // ─── Rotation-Invariant Local Coordinate Projection ──────────────────────────
 //
@@ -232,16 +235,19 @@ function detectNumber(st, lm2d, localLm, palmSize) {
 
   // 7: Polegar e Indicador estendidos (L invertido), apontando para BAIXO.
   // Se o indicador está apontando para baixo, ele pode ser classificado como C ou H devido a distorção local.
-  // Usamos a flexão da junta PIP do indicador (indexFlex > 130) para confirmar que ele está reto.
-  if (
-    is(st.thumb, 'E') &&
-    (is(st.middle, 'C') || is(st.middle, 'H')) &&
-    (is(st.ring, 'C') || is(st.ring, 'H')) &&
-    (is(st.pinky, 'C') || is(st.pinky, 'H'))
-  ) {
-    const indexFlex = getJointAngle(localLm, LM.INDEX_MCP, LM.INDEX_PIP, LM.INDEX_DIP);
-    const pointingDown = lm2d[LM.INDEX_TIP].y > lm2d[LM.INDEX_MCP].y;
-    if (pointingDown && indexFlex > 130) {
+  // Usamos a distância 2D do indicador para garantir que ele está estendido e a dos outros dedos para garantir que estão dobrados.
+  if (is(st.thumb, 'E')) {
+    const indexPointingDown = lm2d[LM.INDEX_TIP].y > lm2d[LM.INDEX_MCP].y;
+    const indexLength2d = dist2(lm2d[LM.INDEX_MCP], lm2d[LM.INDEX_TIP]) / palmSize;
+    const middleLength2d = dist2(lm2d[LM.MIDDLE_MCP], lm2d[LM.MIDDLE_TIP]) / palmSize;
+    const pinkyLength2d = dist2(lm2d[LM.PINKY_MCP], lm2d[LM.PINKY_TIP]) / palmSize;
+
+    if (
+      indexPointingDown &&
+      indexLength2d > 0.48 &&
+      middleLength2d < 0.45 &&
+      pinkyLength2d < 0.45
+    ) {
       return 7;
     }
   }
