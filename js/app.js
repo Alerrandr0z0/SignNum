@@ -34,7 +34,7 @@ class OneEuroFilter {
     } else {
       const dx = (value - this.lastRawValue) / dt;
       const alphaD = this.getAlpha(this.dCutoff, dt);
-      const edx = alphaD * dx + (1 - alphaD) * (this.lastFilteredValue - this.lastRawValue) / dt;
+      const edx = alphaD * dx + ((1 - alphaD) * (this.lastFilteredValue - this.lastRawValue)) / dt;
       const cutoff = this.minCutoff + this.beta * Math.abs(edx);
       const alpha = this.getAlpha(cutoff, dt);
       filteredValue = alpha * value + (1 - alpha) * this.lastFilteredValue;
@@ -363,12 +363,20 @@ function processFrame(timestamp) {
 
     if (STATE.latestWorldLandmarks) {
       if (STATE.debugMode) {
-        const snap = getDebugSnapshot(STATE.latestWorldLandmarks, STATE.latestLandmarks, STATE.isRightHand);
+        const snap = getDebugSnapshot(
+          STATE.latestWorldLandmarks,
+          STATE.latestLandmarks,
+          STATE.isRightHand,
+        );
         updateDebugPanel(snap);
       }
 
       if (now >= STATE.cooldownUntil) {
-        const gesture = STATE.classifier.classify(STATE.latestWorldLandmarks, STATE.latestLandmarks);
+        const gesture = STATE.classifier.classify(
+          STATE.latestWorldLandmarks,
+          STATE.latestLandmarks,
+          STATE.isRightHand,
+        );
 
         if (gesture) {
           DOM.detectedNumber.textContent = gesture.number;

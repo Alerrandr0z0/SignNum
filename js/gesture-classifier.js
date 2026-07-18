@@ -170,8 +170,21 @@ function is(s, expected) {
   return s === expected;
 }
 
-function detectNumber(st, lm2d, localLm, palmSize) {
+function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) {
   if (!lm2d || !localLm) return null;
+
+  // Se o dorso da mão estiver virado para a câmera, invalidamos a detecção.
+  // Para a mão direita (isRightHand), o vetor normal do plano da palma (zAxis.z) deve ser positivo.
+  // Para a mão esquerda (!isRightHand), o vetor normal deve ser negativo.
+  if (isRightHand !== undefined && worldLandmarks) {
+    const origin = worldLandmarks[LM.WRIST];
+    const yAxis = normalize(sub(worldLandmarks[LM.MIDDLE_MCP], origin));
+    const vKnuckles = sub(worldLandmarks[LM.PINKY_MCP], worldLandmarks[LM.INDEX_MCP]);
+    const zAxis = normalize(cross(yAxis, vKnuckles));
+
+    const isPalm = isRightHand ? zAxis.z > -0.15 : zAxis.z < 0.15;
+    if (!isPalm) return null;
+  }
 
   const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
 
@@ -320,7 +333,7 @@ class GestureClassifier {
     this._lastStable = null;
   }
 
-  classify(worldLandmarks, lm2d) {
+  classify(worldLandmarks, lm2d, isRightHand) {
     if (!worldLandmarks || worldLandmarks.length < 21) {
       this._push(null);
       return null;
@@ -330,8 +343,8 @@ class GestureClassifier {
     const palmSize = dist3(worldLandmarks[LM.WRIST], worldLandmarks[LM.MIDDLE_MCP]);
     const st = getFingerStates(localLm, palmSize);
 
-    // Passamos o localLm (3D local) e o palmSize para ter acesso a dados espaciais detalhados nas regras
-    const detected = detectNumber(st, lm2d, localLm, palmSize);
+    // Passamos o localLm (3D local), o palmSize e dados de orientação para ter acesso a dados espaciais detalhados nas regras
+    const detected = detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks);
 
     this._push(detected);
     return this._stable();
@@ -418,7 +431,7 @@ function getDebugSnapshot(worldLandmarks, lm2d, isRightHand) {
   const thumbX = (localLm[LM.THUMB_TIP].x / palmSize).toFixed(2);
   const thumbFlex = getJointAngle(localLm, LM.THUMB_CMC, LM.THUMB_MCP, LM.THUMB_IP).toFixed(0);
 
-  const matched = detectNumber(st, lm2d, localLm, palmSize);
+  const matched = detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks);
 
   return { st, localY, thumbX, thumbFlex, isRightHand, matched };
 }
