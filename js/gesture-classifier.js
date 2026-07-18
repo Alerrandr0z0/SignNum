@@ -174,6 +174,23 @@ function is(s, expected) {
 function detectNumber(st, lm2d, localLm, palmSize) {
   if (!lm2d || !localLm) return null;
 
+  // 0: Todos os dedos curvados formando um círculo (O), com as pontas tocando o polegar.
+  if (
+    (is(st.index, 'C') || is(st.index, 'H')) &&
+    (is(st.middle, 'C') || is(st.middle, 'H')) &&
+    (is(st.ring, 'C') || is(st.ring, 'H')) &&
+    (is(st.pinky, 'C') || is(st.pinky, 'H'))
+  ) {
+    const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
+    const thumbIndexDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+    const thumbMiddleDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+    const thumbRingDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.RING_TIP]) / palmSize2D;
+
+    if (thumbIndexDist < 0.3 && thumbMiddleDist < 0.3 && thumbRingDist < 0.3) {
+      return 0;
+    }
+  }
+
   // 1: Apenas Indicador estendido (Ignoramos o polegar para permitir que fique em qualquer posição lateral)
   if (is(st.index, 'E') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) return 1;
 
