@@ -173,6 +173,8 @@ function is(s, expected) {
 function detectNumber(st, lm2d, localLm, palmSize) {
   if (!lm2d || !localLm) return null;
 
+  const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
+
   // 0: Todos os dedos curvados formando um círculo (O), com as pontas tocando o polegar.
   if (
     (is(st.index, 'C') || is(st.index, 'H')) &&
@@ -180,7 +182,6 @@ function detectNumber(st, lm2d, localLm, palmSize) {
     (is(st.ring, 'C') || is(st.ring, 'H')) &&
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
-    const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
     const thumbIndexDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
     const thumbMiddleDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
     const thumbRingDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.RING_TIP]) / palmSize2D;
@@ -215,15 +216,16 @@ function detectNumber(st, lm2d, localLm, palmSize) {
     );
 
     // Calculamos o comprimento 2D projetado para detectar ganchos mesmo se o MediaPipe estimar as juntas como retas em 3D.
-    const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
     const indexLength2D = dist2(lm2d[LM.INDEX_MCP], lm2d[LM.INDEX_TIP]) / palmSize2D;
     const middleLength2D = dist2(lm2d[LM.MIDDLE_MCP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+    const tipDist = dist2(lm2d[LM.INDEX_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
 
     if (
-      indexStraightness < 0.94 ||
-      middleStraightness < 0.94 ||
-      indexLength2D < 0.72 ||
-      middleLength2D < 0.72
+      tipDist > 0.2 &&
+      (indexStraightness < 0.94 ||
+        middleStraightness < 0.94 ||
+        indexLength2D < 0.72 ||
+        middleLength2D < 0.72)
     ) {
       return 5;
     }
@@ -248,14 +250,17 @@ function detectNumber(st, lm2d, localLm, palmSize) {
     (is(st.ring, 'C') || is(st.ring, 'H')) &&
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
-    return 2;
+    const tipDist = dist2(lm2d[LM.INDEX_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+    if (tipDist > 0.2) {
+      return 2;
+    }
   }
 
   // 4: Indicador + Médio + Anelar + Mindinho estendidos.
-  // O polegar deve estar recolhido sobre a palma (thumbX < 0.32) para distinguir da palma aberta (não numérica).
+  // O polegar deve estar recolhido sobre a palma (thumbX < 0.32 e não estar estendido) para distinguir da palma aberta (não numérica).
   if (is(st.index, 'E') && is(st.middle, 'E') && is(st.ring, 'E') && is(st.pinky, 'E')) {
     const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
-    if (Math.abs(thumbX) < 0.32) {
+    if (st.thumb !== 'E' && Math.abs(thumbX) < 0.32) {
       return 4;
     }
   }
@@ -265,7 +270,6 @@ function detectNumber(st, lm2d, localLm, palmSize) {
   // Permitimos que o polegar seja classificado como E ou H (semi-esticado) contanto que esteja afastado lateralmente.
   const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
   if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && Math.abs(thumbX) > 0.22) {
-    const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
     const indexPointingDown = lm2d[LM.INDEX_TIP].y > lm2d[LM.INDEX_MCP].y;
     const indexLength2d = (lm2d[LM.INDEX_TIP].y - lm2d[LM.INDEX_MCP].y) / palmSize2D;
     const indexMiddleYDiff = (lm2d[LM.INDEX_TIP].y - lm2d[LM.MIDDLE_TIP].y) / palmSize2D;
