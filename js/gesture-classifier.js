@@ -262,7 +262,9 @@ function detectNumber(st, lm2d, localLm, palmSize) {
 
   // 7: Polegar e Indicador estendidos (L invertido), apontando para BAIXO.
   // Usamos diferenças no eixo Y em 2D para garantir robustez e independência de inclinação da mão.
-  if (is(st.thumb, 'E')) {
+  // Permitimos que o polegar seja classificado como E ou H (semi-esticado) contanto que esteja afastado lateralmente.
+  const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
+  if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && Math.abs(thumbX) > 0.22) {
     const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
     const indexPointingDown = lm2d[LM.INDEX_TIP].y > lm2d[LM.INDEX_MCP].y;
     const indexLength2d = (lm2d[LM.INDEX_TIP].y - lm2d[LM.INDEX_MCP].y) / palmSize2D;
