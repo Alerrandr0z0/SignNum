@@ -312,8 +312,9 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
       return 8;
     }
     // Caso contrário, o polegar está estendido longe da palma (Joinha ou polegar para baixo).
-    const thumbUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.INDEX_MCP].y;
-    const thumbDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.WRIST].y;
+    // O polegar deve apontar claramente para cima (6) ou para baixo (9) em relação ao seu próprio MCP para evitar falsos positivos quando a mão está rotacionada na horizontal.
+    const thumbUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.THUMB_MCP].y - 0.15 * palmSize2D;
+    const thumbDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.THUMB_MCP].y + 0.15 * palmSize2D;
     if (thumbUp) return 6;
     if (thumbDown) return 9;
   }
