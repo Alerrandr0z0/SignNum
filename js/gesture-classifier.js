@@ -182,7 +182,7 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const vKnuckles = sub(worldLandmarks[LM.PINKY_MCP], worldLandmarks[LM.INDEX_MCP]);
     const zAxis = normalize(cross(yAxis, vKnuckles));
 
-    const isPalm = isRightHand ? zAxis.z > -0.15 : zAxis.z < 0.15;
+    const isPalm = isRightHand ? zAxis.z < 0.15 : zAxis.z > -0.15;
     if (!isPalm) return null;
   }
 
