@@ -146,11 +146,10 @@ function getFingerStates(localLm, palmSize) {
 
   return {
     thumb: thumbState,
-    // Expanded the 'H' window (0.1 to 0.35) so hook shapes like '6' and '9' trigger much easier
-    index: getFState(LM.INDEX_TIP, LM.INDEX_MCP, 0.35, 0.1),
-    middle: getFState(LM.MIDDLE_TIP, LM.MIDDLE_MCP, 0.35, 0.1),
-    ring: getFState(LM.RING_TIP, LM.RING_MCP, 0.3, 0.1),
-    pinky: getFState(LM.PINKY_TIP, LM.PINKY_MCP, 0.25, 0.1),
+    index: getFState(LM.INDEX_TIP, LM.INDEX_MCP, 0.45, 0.15),
+    middle: getFState(LM.MIDDLE_TIP, LM.MIDDLE_MCP, 0.45, 0.15),
+    ring: getFState(LM.RING_TIP, LM.RING_MCP, 0.45, 0.15),
+    pinky: getFState(LM.PINKY_TIP, LM.PINKY_MCP, 0.4, 0.15),
   };
 }
 
