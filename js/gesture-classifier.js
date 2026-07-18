@@ -236,13 +236,13 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const tipDist = dist2(lm2d[LM.INDEX_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
 
     if (
-      tipDist > 0.25 &&
+      tipDist > 0.18 &&
       ringLength2D < 0.6 &&
       pinkyLength2D < 0.6 &&
       (indexStraightness < 0.94 ||
         middleStraightness < 0.94 ||
-        indexLength2D < 0.72 ||
-        middleLength2D < 0.72)
+        indexLength2D < 0.68 ||
+        middleLength2D < 0.68)
     ) {
       return 5;
     }
@@ -268,7 +268,7 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
     const tipDist = dist2(lm2d[LM.INDEX_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
-    if (tipDist > 0.25) {
+    if (tipDist > 0.22) {
       return 2;
     }
   }
