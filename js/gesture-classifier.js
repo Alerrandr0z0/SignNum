@@ -274,10 +274,10 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
   }
 
   // 4: Indicador + Médio + Anelar + Mindinho estendidos.
-  // O polegar deve estar recolhido sobre a palma (thumbX < 0.32 e não estar estendido) para distinguir da palma aberta (não numérica).
+  // O polegar deve estar recolhido sobre a palma (thumbX < 0.20) para distinguir da palma aberta (não numérica).
   if (is(st.index, 'E') && is(st.middle, 'E') && is(st.ring, 'E') && is(st.pinky, 'E')) {
     const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
-    if (st.thumb !== 'E' && Math.abs(thumbX) < 0.32) {
+    if (Math.abs(thumbX) < 0.2) {
       return 4;
     }
   }
