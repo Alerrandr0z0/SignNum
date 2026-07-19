@@ -195,10 +195,9 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     (is(st.ring, 'C') || is(st.ring, 'H')) &&
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
-    // Para o sinal ser 0, a mão deve estar apontando para cima (dedos acima de suas juntas).
+    // Para o sinal ser 0, a mão deve estar apontando para cima (juntas acima do pulso).
     // Se estiver apontando para baixo, é um 9 ou punho fechado (8).
-    const isPointingUp =
-      lm2d[LM.INDEX_TIP].y < lm2d[LM.INDEX_MCP].y && lm2d[LM.MIDDLE_TIP].y < lm2d[LM.MIDDLE_MCP].y;
+    const isPointingUp = lm2d[LM.MIDDLE_MCP].y < lm2d[LM.WRIST].y - 0.1 * palmSize2D;
 
     if (isPointingUp) {
       // Combinamos distâncias 2D (muito robustas a ruídos de profundidade Z) e 3D (para evitar sobreposição de punho/perspectiva).
