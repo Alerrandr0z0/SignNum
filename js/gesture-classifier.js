@@ -190,15 +190,17 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
 
   // 0: Todos os dedos curvados formando um círculo (O), com as pontas tocando o polegar.
   if (
-    (is(st.thumb, 'C') || is(st.thumb, 'H')) &&
     (is(st.index, 'C') || is(st.index, 'H')) &&
     (is(st.middle, 'C') || is(st.middle, 'H')) &&
     (is(st.ring, 'C') || is(st.ring, 'H')) &&
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
-    // Usamos distâncias 3D reais (worldLandmarks) porque as 2D sobrepõem as pontas em ângulos fechados.
-    // No 0, todas as pontas tocam no polegar fisicamente na vida real.
-    // Num punho fechado (8), as pontas ficam escondidas, longe do polegar em 3D.
+    // Combinamos distâncias 2D (muito robustas a ruídos de profundidade Z) e 3D (para evitar sobreposição de punho/perspectiva).
+    // Aumentamos o limite 3D para 0.53 para acomodar a variação de profundidade estimada pelo MediaPipe no 0.
+    const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+    const thumbMiddleDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+    const thumbRingDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.RING_TIP]) / palmSize2D;
+
     const thumbIndexDist3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]) / palmSize;
     const thumbMiddleDist3D =
@@ -206,7 +208,14 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const thumbRingDist3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.RING_TIP]) / palmSize;
 
-    if (thumbIndexDist3D < 0.45 && thumbMiddleDist3D < 0.45 && thumbRingDist3D < 0.45) {
+    if (
+      thumbIndexDist2D < 0.35 &&
+      thumbMiddleDist2D < 0.35 &&
+      thumbRingDist2D < 0.35 &&
+      thumbIndexDist3D < 0.53 &&
+      thumbMiddleDist3D < 0.53 &&
+      thumbRingDist3D < 0.53
+    ) {
       return 0;
     }
   }
