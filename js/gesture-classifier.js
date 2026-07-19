@@ -315,8 +315,10 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
 
     // Se o polegar está estendido (E ou H) e forma um laço/círculo com o indicador, é 6 ou 9
     if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist < 0.38) {
-      const thumbUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.THUMB_MCP].y - 0.1 * palmSize2D;
-      const thumbDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.THUMB_MCP].y + 0.1 * palmSize2D;
+      // Usamos as coordenadas locais 3D para determinar se o polegar aponta para cima (6) ou para baixo (9) em relação à mão,
+      // tornando a classificação robusta a rotações da mão na câmera.
+      const thumbUp = localLm[LM.THUMB_TIP].y > localLm[LM.THUMB_MCP].y + 0.15 * palmSize;
+      const thumbDown = localLm[LM.THUMB_TIP].y < localLm[LM.THUMB_MCP].y - 0.15 * palmSize;
       if (thumbUp) return 6;
       if (thumbDown) return 9;
     }
