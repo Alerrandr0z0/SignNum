@@ -307,10 +307,14 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
   // 8, 6, 9: Dedos indicador, médio, anelar e mindinho fechados (C).
   if (is(st.index, 'C') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) {
     const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
-    const thumbIndexDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+
+    // Medimos a menor distância do indicador ao polegar (pode tocar na ponta do polegar ou na junta THUMB_IP/lateral)
+    const distToTip = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]);
+    const distToIP = dist2(lm2d[LM.THUMB_IP], lm2d[LM.INDEX_TIP]);
+    const thumbIndexDist = Math.min(distToTip, distToIP) / palmSize2D;
 
     // Se o polegar está estendido (E ou H) e forma um laço/círculo com o indicador, é 6 ou 9
-    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist < 0.42) {
+    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist < 0.38) {
       const thumbUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.THUMB_MCP].y - 0.1 * palmSize2D;
       const thumbDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.THUMB_MCP].y + 0.1 * palmSize2D;
       if (thumbUp) return 6;
