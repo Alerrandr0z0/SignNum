@@ -195,28 +195,35 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     (is(st.ring, 'C') || is(st.ring, 'H')) &&
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
-    // Combinamos distâncias 2D (muito robustas a ruídos de profundidade Z) e 3D (para evitar sobreposição de punho/perspectiva).
-    // Aumentamos o limite 3D para 0.53 para acomodar a variação de profundidade estimada pelo MediaPipe no 0.
-    const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
-    const thumbMiddleDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
-    const thumbRingDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.RING_TIP]) / palmSize2D;
+    // Para o sinal ser 0, a mão deve estar apontando para cima (dedos acima de suas juntas).
+    // Se estiver apontando para baixo, é um 9 ou punho fechado (8).
+    const isPointingUp =
+      lm2d[LM.INDEX_TIP].y < lm2d[LM.INDEX_MCP].y && lm2d[LM.MIDDLE_TIP].y < lm2d[LM.MIDDLE_MCP].y;
 
-    const thumbIndexDist3D =
-      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]) / palmSize;
-    const thumbMiddleDist3D =
-      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.MIDDLE_TIP]) / palmSize;
-    const thumbRingDist3D =
-      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.RING_TIP]) / palmSize;
+    if (isPointingUp) {
+      // Combinamos distâncias 2D (muito robustas a ruídos de profundidade Z) e 3D (para evitar sobreposição de punho/perspectiva).
+      // Aumentamos o limite 3D para 0.53 para acomodar a variação de profundidade estimada pelo MediaPipe no 0.
+      const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+      const thumbMiddleDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+      const thumbRingDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.RING_TIP]) / palmSize2D;
 
-    if (
-      thumbIndexDist2D < 0.35 &&
-      thumbMiddleDist2D < 0.35 &&
-      thumbRingDist2D < 0.35 &&
-      thumbIndexDist3D < 0.53 &&
-      thumbMiddleDist3D < 0.53 &&
-      thumbRingDist3D < 0.53
-    ) {
-      return 0;
+      const thumbIndexDist3D =
+        dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]) / palmSize;
+      const thumbMiddleDist3D =
+        dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.MIDDLE_TIP]) / palmSize;
+      const thumbRingDist3D =
+        dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.RING_TIP]) / palmSize;
+
+      if (
+        thumbIndexDist2D < 0.35 &&
+        thumbMiddleDist2D < 0.35 &&
+        thumbRingDist2D < 0.35 &&
+        thumbIndexDist3D < 0.53 &&
+        thumbMiddleDist3D < 0.53 &&
+        thumbRingDist3D < 0.53
+      ) {
+        return 0;
+      }
     }
   }
 
@@ -335,7 +342,13 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
 
     // 1. PRIORIDADE: Se o polegar está estendido/semi-estendido e as pontas do indicador e polegar estão fisicamente próximas, é 6 ou 9.
     // Isso evita que o 6 ou 9 de mãos menores ou anguladas seja "engolido" pelo 8.
-    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist3D < 0.45) {
+    // Exigimos que a ponta do indicador e a ponta do polegar estejam a uma distância razoável (distToTip3D / palmSize < 0.46)
+    // para evitar falsos positivos com a mão em punho fechado e polegar esticado (joinha).
+    if (
+      (is(st.thumb, 'E') || is(st.thumb, 'H')) &&
+      thumbIndexDist3D < 0.45 &&
+      distToTip3D / palmSize < 0.46
+    ) {
       // 6 e 9 são o MESMO sinal, apenas rotacionados na câmera.
       // Checamos a posição da ponta do polegar em relação à junta do dedo médio (em coordenadas 2D da tela).
       // No 6, o polegar aponta para cima na tela (menor Y que a junta). No 9, para baixo (maior Y que a junta).
