@@ -314,11 +314,8 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
   // 8, 6, 9: Dedos indicador, médio, anelar e mindinho fechados (C).
   if (is(st.index, 'C') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) {
     // Usamos distâncias 3D para evitar os falsos positivos das projeções 2D.
-    // O eixo X local se inverte com rotações estranhas, e o 2D sobrepõe dedos que estão longe.
 
     // Distância 3D da ponta do polegar até o centro da palma (MIDDLE_MCP).
-    // No punho fechado (8), o polegar dobra em cima da palma e a distância é curta.
-    // No laço (6/9), o polegar se estica para a frente/lado e a distância é longa.
     const thumbDistToPalm3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.MIDDLE_MCP]) / palmSize;
 
@@ -327,28 +324,26 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const distToIP3D = dist3(worldLandmarks[LM.THUMB_IP], worldLandmarks[LM.INDEX_TIP]);
     const thumbIndexDist3D = Math.min(distToTip3D, distToIP3D) / palmSize;
 
-    // Se o polegar está fisicamente colado no centro da mão, é o punho fechado (8).
-    if (
-      is(st.thumb, 'C') ||
-      thumbDistToPalm3D < 0.7 ||
-      (is(st.thumb, 'H') && thumbIndexDist3D > 0.4)
-    ) {
-      return 8;
-    }
-
-    // Se passou do 8 e o polegar está estendido/semi-estendido e as pontas do indicador e polegar estão fisicamente próximas, é 6 ou 9.
+    // 1. PRIORIDADE: Se o polegar está estendido/semi-estendido e as pontas do indicador e polegar estão fisicamente próximas, é 6 ou 9.
+    // Isso evita que o 6 ou 9 de mãos menores ou anguladas seja "engolido" pelo 8.
     if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist3D < 0.45) {
       // 6 e 9 são o MESMO sinal, apenas rotacionados na câmera.
-      // Não podemos usar coordenadas locais para distingui-los, pois na mão, o polegar aponta para a mesma direção em ambos.
-      // Em 6, a mão aponta para cima na câmera. Em 9, a mão aponta para baixo.
       // Checamos a posição da ponta do polegar em relação à junta do dedo médio (em coordenadas 2D da tela).
       // No 6, o polegar aponta para cima na tela (menor Y que a junta). No 9, para baixo (maior Y que a junta).
-      // Isso é imune à flexão e extensão do pulso.
       const handPointingUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.MIDDLE_MCP].y;
       const handPointingDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.MIDDLE_MCP].y;
 
       if (handPointingUp) return 6;
       if (handPointingDown) return 9;
+    }
+
+    // 2. SEGUNDA OPÇÃO: Se não formou o laço do 6/9, e o polegar está curvado ou colado à palma, é o punho fechado (8).
+    if (
+      is(st.thumb, 'C') ||
+      thumbDistToPalm3D < 0.65 ||
+      (is(st.thumb, 'H') && thumbIndexDist3D > 0.4)
+    ) {
+      return 8;
     }
   }
 
