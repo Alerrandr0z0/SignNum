@@ -173,15 +173,16 @@ function is(s, expected) {
 function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) {
   if (!lm2d || !localLm) return null;
 
-  // Se o dorso da mão estiver virado para a câmera, invalidamos a detecção.
-  // Para a mão direita (isRightHand), o vetor normal do plano da palma (zAxis.z) deve ser positivo.
-  // Para a mão esquerda (!isRightHand), o vetor normal deve ser negativo.
-  if (isRightHand !== undefined && worldLandmarks) {
+  let zAxis = null;
+  if (worldLandmarks) {
     const origin = worldLandmarks[LM.WRIST];
     const yAxis = normalize(sub(worldLandmarks[LM.MIDDLE_MCP], origin));
     const vKnuckles = sub(worldLandmarks[LM.PINKY_MCP], worldLandmarks[LM.INDEX_MCP]);
-    const zAxis = normalize(cross(yAxis, vKnuckles));
+    zAxis = normalize(cross(yAxis, vKnuckles));
+  }
 
+  // Se o dorso da mão estiver virado para a câmera, invalidamos a detecção.
+  if (isRightHand !== undefined && zAxis) {
     const isPalm = isRightHand ? zAxis.z < 0.15 : zAxis.z > -0.15;
     if (!isPalm) return null;
   }
@@ -208,12 +209,14 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const thumbRingDist3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.RING_TIP]) / palmSize;
 
-    // No 0, o polegar aponta para CIMA (ou na altura das juntas do médio).
-    // No 9, a mão está apontando para baixo, logo o polegar fica abaixo da junta da palma.
+    // No 0, o polegar aponta para CIMA (ou na altura das juntas do médio) e a mão deve estar apontando para CIMA.
+    // No 9, a mão está apontando para baixo (junta do médio abaixo do pulso), logo o polegar fica abaixo da junta da palma.
+    const handPointingUp = lm2d[LM.MIDDLE_MCP].y < lm2d[LM.WRIST].y;
     const thumbPointingUpOrMiddle =
       lm2d[LM.THUMB_TIP].y < lm2d[LM.MIDDLE_MCP].y + 0.05 * palmSize2D;
 
     if (
+      handPointingUp &&
       thumbPointingUpOrMiddle &&
       thumbIndexDist2D < 0.38 &&
       thumbMiddleDist2D < 0.44 &&
@@ -340,8 +343,13 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const thumbIndexDist3D = Math.min(distToTip3D, distToIP3D) / palmSize;
 
     // 1. PRIORIDADE: Se o polegar está estendido/semi-estendido e as pontas do indicador e polegar estão fisicamente próximas, é 6 ou 9.
-    // Isso evita que o 6 ou 9 de mãos menores ou anguladas seja "engolido" pelo 8.
-    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist3D < 0.45) {
+    // Para evitar falsos positivos quando a mão está de lado (profile de 0), exigimos que a palma esteja claramente voltada para a câmera (Z expressivo).
+    let isPalmFacingCamera = true;
+    if (isRightHand !== undefined && zAxis) {
+      isPalmFacingCamera = isRightHand ? zAxis.z < -0.15 : zAxis.z > 0.15;
+    }
+
+    if (isPalmFacingCamera && (is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist3D < 0.45) {
       // 6 e 9 são o MESMO sinal, apenas rotacionados na câmera.
       // Checamos a posição da ponta do polegar em relação à junta do dedo médio (em coordenadas 2D da tela).
       // No 6, o polegar aponta para cima na tela (menor Y que a junta). No 9, para baixo (maior Y que a junta).
