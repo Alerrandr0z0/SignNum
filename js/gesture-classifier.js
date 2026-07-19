@@ -195,11 +195,17 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     (is(st.ring, 'C') || is(st.ring, 'H')) &&
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
-    const thumbIndexDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
-    const thumbMiddleDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
-    const thumbRingDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.RING_TIP]) / palmSize2D;
+    // Usamos distâncias 3D reais (worldLandmarks) porque as 2D sobrepõem as pontas em ângulos fechados.
+    // No 0, todas as pontas tocam no polegar fisicamente na vida real.
+    // Num punho fechado (8), as pontas ficam escondidas, longe do polegar em 3D.
+    const thumbIndexDist3D =
+      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]) / palmSize;
+    const thumbMiddleDist3D =
+      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.MIDDLE_TIP]) / palmSize;
+    const thumbRingDist3D =
+      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.RING_TIP]) / palmSize;
 
-    if (thumbIndexDist < 0.3 && thumbMiddleDist < 0.3 && thumbRingDist < 0.3) {
+    if (thumbIndexDist3D < 0.45 && thumbMiddleDist3D < 0.45 && thumbRingDist3D < 0.45) {
       return 0;
     }
   }
@@ -306,36 +312,35 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
 
   // 8, 6, 9: Dedos indicador, médio, anelar e mindinho fechados (C).
   if (is(st.index, 'C') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) {
-    const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
+    // Usamos distâncias 3D para evitar os falsos positivos das projeções 2D.
+    // O eixo X local se inverte com rotações estranhas, e o 2D sobrepõe dedos que estão longe.
 
-    // Em 8 (punho fechado), o polegar repousa SOBRE os dedos dobrados (lateralmente próximo ao centro).
-    // Em 6 e 9 (laço), o polegar se estende PARA FRENTE (ou para o lado) para encontrar o indicador,
-    // criando um espaço/laço. A principal diferença visual é que o polegar fica mais afastado da palma no 6/9.
+    // Distância 3D da ponta do polegar até o centro da palma (MIDDLE_MCP).
+    // No punho fechado (8), o polegar dobra em cima da palma e a distância é curta.
+    // No laço (6/9), o polegar se estica para a frente/lado e a distância é longa.
+    const thumbDistToPalm3D =
+      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.MIDDLE_MCP]) / palmSize;
 
-    // Verificamos a distância do polegar para a palma para distinguir o 8 do 6/9
-    const thumbDistToPalm = Math.abs(thumbX);
+    // Distância 3D da ponta do indicador até o polegar (ponta ou junta) para checar o laço
+    const distToTip3D = dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]);
+    const distToIP3D = dist3(worldLandmarks[LM.THUMB_IP], worldLandmarks[LM.INDEX_TIP]);
+    const thumbIndexDist3D = Math.min(distToTip3D, distToIP3D) / palmSize;
 
-    // Medimos a menor distância do indicador ao polegar (pode tocar na ponta do polegar ou na junta THUMB_IP/lateral)
-    const distToTip = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]);
-    const distToIP = dist2(lm2d[LM.THUMB_IP], lm2d[LM.INDEX_TIP]);
-    const thumbIndexDist = Math.min(distToTip, distToIP) / palmSize2D;
-
-    // Se o polegar está muito próximo à palma (cruzando os dedos), é o punho fechado (8).
-    // Priorizamos o 8 para evitar que punhos fechados com polegares um pouco estendidos sejam vistos como 6.
+    // Se o polegar está fisicamente colado no centro da mão, é o punho fechado (8).
     if (
       is(st.thumb, 'C') ||
-      thumbDistToPalm < 0.28 ||
-      (is(st.thumb, 'H') && thumbIndexDist > 0.4)
+      thumbDistToPalm3D < 0.7 ||
+      (is(st.thumb, 'H') && thumbIndexDist3D > 0.4)
     ) {
       return 8;
     }
 
-    // Se passou do 8 e o polegar está estendido/semi-estendido formando um laço com o indicador, é 6 ou 9.
-    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist < 0.45) {
+    // Se passou do 8 e o polegar está estendido/semi-estendido e as pontas do indicador e polegar estão fisicamente próximas, é 6 ou 9.
+    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist3D < 0.45) {
       // 6 e 9 são o MESMO sinal, apenas rotacionados na câmera.
       // Não podemos usar coordenadas locais para distingui-los, pois na mão, o polegar aponta para a mesma direção em ambos.
       // Em 6, a mão aponta para cima na câmera. Em 9, a mão aponta para baixo.
-      // Checamos a posição do pulso em relação ao dedo médio (em coordenadas 2D da tela).
+      // Checamos a posição do pulso em relação ao dedo médio (em coordenadas globais Y).
       const handPointingUp = lm2d[LM.MIDDLE_MCP].y < lm2d[LM.WRIST].y;
       const handPointingDown = lm2d[LM.MIDDLE_MCP].y > lm2d[LM.WRIST].y;
 
