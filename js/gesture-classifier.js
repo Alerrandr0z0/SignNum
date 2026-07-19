@@ -308,24 +308,39 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
   if (is(st.index, 'C') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) {
     const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
 
+    // Em 8 (punho fechado), o polegar repousa SOBRE os dedos dobrados (lateralmente próximo ao centro).
+    // Em 6 e 9 (laço), o polegar se estende PARA FRENTE (ou para o lado) para encontrar o indicador,
+    // criando um espaço/laço. A principal diferença visual é que o polegar fica mais afastado da palma no 6/9.
+
+    // Verificamos a distância do polegar para a palma para distinguir o 8 do 6/9
+    const thumbDistToPalm = Math.abs(thumbX);
+
     // Medimos a menor distância do indicador ao polegar (pode tocar na ponta do polegar ou na junta THUMB_IP/lateral)
     const distToTip = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]);
     const distToIP = dist2(lm2d[LM.THUMB_IP], lm2d[LM.INDEX_TIP]);
     const thumbIndexDist = Math.min(distToTip, distToIP) / palmSize2D;
 
-    // Se o polegar está estendido (E ou H) e forma um laço/círculo com o indicador, é 6 ou 9
-    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist < 0.38) {
-      // Usamos as coordenadas locais 3D para determinar se o polegar aponta para cima (6) ou para baixo (9) em relação à mão,
-      // tornando a classificação robusta a rotações da mão na câmera.
-      const thumbUp = localLm[LM.THUMB_TIP].y > localLm[LM.THUMB_MCP].y + 0.15 * palmSize;
-      const thumbDown = localLm[LM.THUMB_TIP].y < localLm[LM.THUMB_MCP].y - 0.15 * palmSize;
-      if (thumbUp) return 6;
-      if (thumbDown) return 9;
+    // Se o polegar está muito próximo à palma (cruzando os dedos), é o punho fechado (8).
+    // Priorizamos o 8 para evitar que punhos fechados com polegares um pouco estendidos sejam vistos como 6.
+    if (
+      is(st.thumb, 'C') ||
+      thumbDistToPalm < 0.28 ||
+      (is(st.thumb, 'H') && thumbIndexDist > 0.4)
+    ) {
+      return 8;
     }
 
-    // Caso contrário (ou se não for um 6/9 válido), é o punho fechado (8).
-    if (is(st.thumb, 'C') || is(st.thumb, 'H') || Math.abs(thumbX) < 0.32) {
-      return 8;
+    // Se passou do 8 e o polegar está estendido/semi-estendido formando um laço com o indicador, é 6 ou 9.
+    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist < 0.45) {
+      // 6 e 9 são o MESMO sinal, apenas rotacionados na câmera.
+      // Não podemos usar coordenadas locais para distingui-los, pois na mão, o polegar aponta para a mesma direção em ambos.
+      // Em 6, a mão aponta para cima na câmera. Em 9, a mão aponta para baixo.
+      // Checamos a posição do pulso em relação ao dedo médio (em coordenadas 2D da tela).
+      const handPointingUp = lm2d[LM.MIDDLE_MCP].y < lm2d[LM.WRIST].y;
+      const handPointingDown = lm2d[LM.MIDDLE_MCP].y > lm2d[LM.WRIST].y;
+
+      if (handPointingUp) return 6;
+      if (handPointingDown) return 9;
     }
   }
 
