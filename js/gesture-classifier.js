@@ -307,16 +307,20 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
   // 8, 6, 9: Dedos indicador, médio, anelar e mindinho fechados (C).
   if (is(st.index, 'C') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) {
     const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
-    // Se o polegar está curvado (C/H) ou muito próximo da palma (|thumbX| < 0.32), é o punho fechado (8).
+    const thumbIndexDist = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+
+    // Se o polegar está estendido (E ou H) e forma um laço/círculo com o indicador, é 6 ou 9
+    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbIndexDist < 0.42) {
+      const thumbUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.THUMB_MCP].y - 0.1 * palmSize2D;
+      const thumbDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.THUMB_MCP].y + 0.1 * palmSize2D;
+      if (thumbUp) return 6;
+      if (thumbDown) return 9;
+    }
+
+    // Caso contrário (ou se não for um 6/9 válido), é o punho fechado (8).
     if (is(st.thumb, 'C') || is(st.thumb, 'H') || Math.abs(thumbX) < 0.32) {
       return 8;
     }
-    // Caso contrário, o polegar está estendido longe da palma (Joinha ou polegar para baixo).
-    // O polegar deve apontar claramente para cima (6) ou para baixo (9) em relação ao seu próprio MCP para evitar falsos positivos quando a mão está rotacionada na horizontal.
-    const thumbUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.THUMB_MCP].y - 0.15 * palmSize2D;
-    const thumbDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.THUMB_MCP].y + 0.15 * palmSize2D;
-    if (thumbUp) return 6;
-    if (thumbDown) return 9;
   }
 
   return null;
