@@ -190,6 +190,7 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
 
   // 0: Todos os dedos curvados formando um círculo (O), com as pontas tocando o polegar.
   if (
+    (is(st.thumb, 'C') || is(st.thumb, 'H')) &&
     (is(st.index, 'C') || is(st.index, 'H')) &&
     (is(st.middle, 'C') || is(st.middle, 'H')) &&
     (is(st.ring, 'C') || is(st.ring, 'H')) &&
@@ -340,9 +341,11 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
       // 6 e 9 são o MESMO sinal, apenas rotacionados na câmera.
       // Não podemos usar coordenadas locais para distingui-los, pois na mão, o polegar aponta para a mesma direção em ambos.
       // Em 6, a mão aponta para cima na câmera. Em 9, a mão aponta para baixo.
-      // Checamos a posição do pulso em relação ao dedo médio (em coordenadas globais Y).
-      const handPointingUp = lm2d[LM.MIDDLE_MCP].y < lm2d[LM.WRIST].y;
-      const handPointingDown = lm2d[LM.MIDDLE_MCP].y > lm2d[LM.WRIST].y;
+      // Checamos a posição da ponta do polegar em relação à junta do dedo médio (em coordenadas 2D da tela).
+      // No 6, o polegar aponta para cima na tela (menor Y que a junta). No 9, para baixo (maior Y que a junta).
+      // Isso é imune à flexão e extensão do pulso.
+      const handPointingUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.MIDDLE_MCP].y;
+      const handPointingDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.MIDDLE_MCP].y;
 
       if (handPointingUp) return 6;
       if (handPointingDown) return 9;
