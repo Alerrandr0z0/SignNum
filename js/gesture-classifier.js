@@ -122,11 +122,23 @@ function getFingerStraightness(lm, mcp, pip, dip, tip) {
 // Values normalized by the length of the palm (WRIST to MIDDLE_MCP distance).
 
 function getFingerStates(localLm, palmSize) {
-  const getFState = (tip, mcp, thresholdExt, thresholdCurl) => {
+  const getFState = (tip, mcp, pip, dip, thresholdExt, thresholdCurl) => {
     const localYDiff = (localLm[tip].y - localLm[mcp].y) / palmSize;
-    if (localYDiff > thresholdExt) return 'E'; // Extended (pointing up relative to knuckle)
-    if (localYDiff < thresholdCurl) return 'C'; // Curled (tucked down)
-    return 'H'; // Half/bent
+    const straightness = getFingerStraightness(localLm, mcp, pip, dip, tip);
+    const absDiff = Math.abs(localYDiff);
+
+    // When the hand is inverted/tilted, extended fingers get negative localYDiff.
+    // Use ABSOLUTE displacement as primary signal: large displacement = extended.
+    // Use straightness as secondary: a straight finger with ANY significant displacement is extended.
+    if (absDiff > thresholdExt) return 'E';
+    if (straightness > 0.85 && absDiff > 0.2) return 'E';
+
+    // Curled: displacement is small AND finger is bent.
+    // Two tiers: very small displacement always curled; moderate displacement only if finger is bent.
+    if (absDiff < thresholdCurl) return 'C';
+    if (absDiff < 0.35 && straightness < 0.6) return 'C';
+
+    return 'H';
   };
 
   // The thumb is evaluated using relative lateral distance (local X) and MCP joint flexion
@@ -146,10 +158,10 @@ function getFingerStates(localLm, palmSize) {
 
   return {
     thumb: thumbState,
-    index: getFState(LM.INDEX_TIP, LM.INDEX_MCP, 0.45, 0.15),
-    middle: getFState(LM.MIDDLE_TIP, LM.MIDDLE_MCP, 0.45, 0.15),
-    ring: getFState(LM.RING_TIP, LM.RING_MCP, 0.45, 0.15),
-    pinky: getFState(LM.PINKY_TIP, LM.PINKY_MCP, 0.4, 0.15),
+    index: getFState(LM.INDEX_TIP, LM.INDEX_MCP, LM.INDEX_PIP, LM.INDEX_DIP, 0.45, 0.15),
+    middle: getFState(LM.MIDDLE_TIP, LM.MIDDLE_MCP, LM.MIDDLE_PIP, LM.MIDDLE_DIP, 0.45, 0.15),
+    ring: getFState(LM.RING_TIP, LM.RING_MCP, LM.RING_PIP, LM.RING_DIP, 0.45, 0.15),
+    pinky: getFState(LM.PINKY_TIP, LM.PINKY_MCP, LM.PINKY_PIP, LM.PINKY_DIP, 0.4, 0.15),
   };
 }
 
@@ -188,18 +200,19 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
 
   const palmSize2D = dist2(lm2d[LM.WRIST], lm2d[LM.MIDDLE_MCP]);
 
-  // 0: Todos os dedos curvados formando um círculo (O), com as pontas tocando o polegar.
+  // 0: All fingers curved forming an O-shape, fingertips converging at thumb tip.
+  //   A real0 has a LARGE O — thumb tip is FAR from the wrist.
+  //   A pinch (thumb+index touching) has thumb near the palm → thumbToWrist is small → rejected.
   if (
     (is(st.index, 'C') || is(st.index, 'H')) &&
     (is(st.middle, 'C') || is(st.middle, 'H')) &&
     (is(st.ring, 'C') || is(st.ring, 'H')) &&
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
-    // Combinamos distâncias 2D e 3D. Como o 0 tem formato aberto, relaxamos os limites de distância
-    // progressivamente (indicador mais próximo, médio e anelar levemente mais distantes).
     const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
     const thumbMiddleDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
     const thumbRingDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.RING_TIP]) / palmSize2D;
+    const thumbPinkyDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.PINKY_TIP]) / palmSize2D;
 
     const thumbIndexDist3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]) / palmSize;
@@ -207,28 +220,42 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.MIDDLE_TIP]) / palmSize;
     const thumbRingDist3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.RING_TIP]) / palmSize;
+    const thumbPinkyDist3D =
+      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.PINKY_TIP]) / palmSize;
 
-    // No 0, a mão aponta para CIMA na tela. No 9, para BAIXO.
-    // Usamos comparação na tela (polegar vs pulso) — mais estável que coordenadas locais.
-    const handPointingUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.WRIST].y;
+    // ALL fingertips must be close to the thumb (O-shape, not just a pinch).
+    const maxThumbDist2D = Math.max(
+      thumbIndexDist2D,
+      thumbMiddleDist2D,
+      thumbRingDist2D,
+      thumbPinkyDist2D,
+    );
+
+    // The O must be LARGE: thumb tip far from wrist. Pinch clusters near the palm.
+    const thumbToWristDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.WRIST]) / palmSize2D;
 
     if (
-      handPointingUp &&
-      thumbIndexDist2D < 0.38 &&
-      thumbMiddleDist2D < 0.44 &&
-      thumbRingDist2D < 0.48 &&
+      thumbToWristDist2D > 0.7 &&
+      maxThumbDist2D < 0.45 &&
       thumbIndexDist3D < 0.55 &&
       thumbMiddleDist3D < 0.6 &&
-      thumbRingDist3D < 0.64
+      thumbRingDist3D < 0.64 &&
+      thumbPinkyDist3D < 0.7
     ) {
       return 0;
     }
   }
 
-  // 1: Apenas Indicador estendido (Ignoramos o polegar para permitir que fique em qualquer posição lateral)
-  if (is(st.index, 'E') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) return 1;
+  // 1: Indicador estendido, polegar recolhido sobre a palma, restantes fechados.
+  // O polegar deve estar próximo da palma (distância thumbTip-indexMCP pequena) para distinguir do 7.
+  if (is(st.index, 'E') && is(st.middle, 'C') && is(st.ring, 'C') && is(st.pinky, 'C')) {
+    const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_MCP]) / palmSize2D;
+    if (thumbIndexDist2D < 0.45) {
+      return 1;
+    }
+  }
 
-  // 5: Duas orelhas de coelho dobradas - Indicador + Médio em gancho (H ou E sob distorção do Z), mindinho fechado/dobrado, polegar livre
+  // 5: Duas orelhas de coelho dobradas - Indicador + Médio em gancho, mindinho fechado, polegar recolhido.
   if (
     (is(st.index, 'E') || is(st.index, 'H')) &&
     (is(st.middle, 'E') || is(st.middle, 'H')) &&
@@ -256,32 +283,39 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const pinkyLength2D = dist2(lm2d[LM.PINKY_MCP], lm2d[LM.PINKY_TIP]) / palmSize2D;
     const tipDist = dist2(lm2d[LM.INDEX_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
 
+    // Ambos devem estar em gancho (straightness baixo OU comprimento 2D curto).
+    const indexHooked = indexStraightness < 0.94 || indexLength2D < 0.68;
+    const middleHooked = middleStraightness < 0.94 || middleLength2D < 0.68;
+
+    // Polegar deve estar recolhido (próximo da palma, não estendido para fora).
+    const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_MCP]) / palmSize2D;
+
     if (
       tipDist > 0.18 &&
       ringLength2D < 0.6 &&
       pinkyLength2D < 0.6 &&
-      (indexStraightness < 0.94 ||
-        middleStraightness < 0.94 ||
-        indexLength2D < 0.68 ||
-        middleLength2D < 0.68)
+      indexHooked &&
+      middleHooked &&
+      thumbIndexDist2D < 0.5
     ) {
       return 5;
     }
   }
 
-  // 2 e 3: Ambos possuem Indicador + Médio estendidos e Anelar + Mindinho fechados.
-  // No sinal de 3 do LIBRAS, os dedos estendidos são Indicador, Médio e Anelar (conforme a folha de referência).
-  // Portanto, verificamos se o Anelar está E para retornar 3.
+  // 3: Indicador + Médio + Anelar estendidos, polegar recolhido, mindinho fechado.
   if (
     is(st.index, 'E') &&
     is(st.middle, 'E') &&
     is(st.ring, 'E') &&
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
-    return 3;
+    const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_MCP]) / palmSize2D;
+    if (thumbIndexDist2D < 0.45) {
+      return 3;
+    }
   }
 
-  // 2: Indicador + Médio estendidos (V da paz)
+  // 2: Indicador + Médio estendidos (V da paz), polegar recolhido sobre a palma.
   if (
     is(st.index, 'E') &&
     is(st.middle, 'E') &&
@@ -289,7 +323,8 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     (is(st.pinky, 'C') || is(st.pinky, 'H'))
   ) {
     const tipDist = dist2(lm2d[LM.INDEX_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
-    if (tipDist > 0.22) {
+    const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_MCP]) / palmSize2D;
+    if (tipDist > 0.22 && thumbIndexDist2D < 0.45) {
       return 2;
     }
   }
@@ -304,22 +339,66 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
   }
 
   // 7: Polegar e Indicador estendidos (L invertido), apontando para BAIXO.
-  // Usamos diferenças no eixo Y em 2D para garantir robustez e independência de inclinação da mão.
-  // Permitimos que o polegar seja classificado como E ou H (semi-esticado) contanto que esteja afastado lateralmente.
-  const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
-  if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && Math.abs(thumbX) > 0.22) {
+  // O indicador deve apontar para baixo na tela (tip.y > MCP.y em screen coords).
+  {
+    const thumbX = localLm[LM.THUMB_TIP].x / palmSize;
+    const thumbExtended = is(st.thumb, 'E') || is(st.thumb, 'H');
+
+    // Polegar afastado lateralmente da palma (verificação local + screen-space)
+    const thumbAway = Math.abs(thumbX) > 0.22;
+
+    if (thumbExtended && thumbAway) {
+      // O indicador deve apontar para baixo na tela
+      const indexPointingDown = lm2d[LM.INDEX_TIP].y > lm2d[LM.INDEX_MCP].y;
+
+      // Distâncias 2D absolutas (não dependem de inclinação da mão)
+      const indexLen2d = dist2(lm2d[LM.INDEX_MCP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+      const middleLen2d = dist2(lm2d[LM.MIDDLE_MCP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+      const ringLen2d = dist2(lm2d[LM.RING_MCP], lm2d[LM.RING_TIP]) / palmSize2D;
+      const pinkyLen2d = dist2(lm2d[LM.PINKY_MCP], lm2d[LM.PINKY_TIP]) / palmSize2D;
+
+      // O indicador deve ser o dedo mais longo na tela (relative comparison)
+      const indexIsLongest =
+        indexLen2d > middleLen2d * 1.1 &&
+        indexLen2d > ringLen2d * 1.1 &&
+        indexLen2d > pinkyLen2d * 1.1;
+
+      // Distância absoluta do indicador projetada no eixo Y
+      const indexProjY = Math.abs(lm2d[LM.INDEX_TIP].y - lm2d[LM.INDEX_MCP].y) / palmSize2D;
+
+      if (indexPointingDown && indexIsLongest && indexProjY > 0.35 && indexLen2d > 0.5) {
+        return 7;
+      }
+    }
+  }
+
+  // 7 (fallback screen-space): Quando a classificação de estado dos dedos falha
+  // (mão invertida/tiltada), usamos apenas geometria 2D para detectar 7.
+  {
     const indexPointingDown = lm2d[LM.INDEX_TIP].y > lm2d[LM.INDEX_MCP].y;
-    const indexLength2d = (lm2d[LM.INDEX_TIP].y - lm2d[LM.INDEX_MCP].y) / palmSize2D;
-    const indexMiddleYDiff = (lm2d[LM.INDEX_TIP].y - lm2d[LM.MIDDLE_TIP].y) / palmSize2D;
-    const indexRingYDiff = (lm2d[LM.INDEX_TIP].y - lm2d[LM.RING_TIP].y) / palmSize2D;
-    const indexPinkyYDiff = (lm2d[LM.INDEX_TIP].y - lm2d[LM.PINKY_TIP].y) / palmSize2D;
+
+    const indexLen2d = dist2(lm2d[LM.INDEX_MCP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+    const middleLen2d = dist2(lm2d[LM.MIDDLE_MCP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+    const ringLen2d = dist2(lm2d[LM.RING_MCP], lm2d[LM.RING_TIP]) / palmSize2D;
+    const pinkyLen2d = dist2(lm2d[LM.PINKY_MCP], lm2d[LM.PINKY_TIP]) / palmSize2D;
+
+    const thumbLen2d = dist2(lm2d[LM.THUMB_MCP], lm2d[LM.THUMB_TIP]) / palmSize2D;
+    const thumbScreenAway =
+      thumbLen2d > 0.35 && Math.abs(lm2d[LM.THUMB_TIP].x - lm2d[LM.THUMB_MCP].x) / palmSize2D > 0.2;
+
+    const indexIsLongest =
+      indexLen2d > middleLen2d * 1.1 &&
+      indexLen2d > ringLen2d * 1.1 &&
+      indexLen2d > pinkyLen2d * 1.1;
+
+    const indexProjY = Math.abs(lm2d[LM.INDEX_TIP].y - lm2d[LM.INDEX_MCP].y) / palmSize2D;
 
     if (
       indexPointingDown &&
-      indexLength2d > 0.45 &&
-      indexMiddleYDiff > 0.18 &&
-      indexRingYDiff > 0.18 &&
-      indexPinkyYDiff > 0.18
+      indexIsLongest &&
+      indexProjY > 0.35 &&
+      indexLen2d > 0.5 &&
+      thumbScreenAway
     ) {
       return 7;
     }
@@ -333,46 +412,62 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const thumbDistToPalm3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.MIDDLE_MCP]) / palmSize;
 
-    // Posição lateral do polegar no sistema de coordenadas local da palma.
-    // No 6/9, o polegar aponta para fora (|x| grande). No punho (8), cruza a palma (|x| pequeno).
-    const thumbLocalX = localLm[LM.THUMB_TIP].x / palmSize;
+    // O-shape pre-check using 2D distances (more reliable than 3D when thumb extends outward).
+    // ALL fingertips must be close to the thumb on screen. Pinch has only index near thumb.
+    if (is(st.thumb, 'E') || is(st.thumb, 'H')) {
+      const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+      const thumbMiddleDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.MIDDLE_TIP]) / palmSize2D;
+      const thumbRingDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.RING_TIP]) / palmSize2D;
+      const thumbPinkyDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.PINKY_TIP]) / palmSize2D;
 
-    // Distância 3D da ponta do indicador até o polegar para checar o laço.
-    // No laço 6/9, o indicador envolve o polegar (ponta perto, mas não necessariamente ponta-a-ponta).
-    // No punho (8), o indicador está enrolado na palma, longe do polegar.
-    const distToTip3D =
-      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]) / palmSize;
+      const handDirY = (lm2d[LM.MIDDLE_MCP].y - lm2d[LM.WRIST].y) / palmSize2D;
+      const handPointingUp = handDirY < -0.3;
 
-    // 1. PRIORIDADE: 6 ou 9 — polegar estendido/semi-estendido para fora da palma.
-    // Critérios:
-    //   a) Polegar E ou H (estendido ou semi-estendido).
-    //   b) Polegar longe do centro da palma (|x| > 0.25) — descarta punho (8) onde o polegar cruza a palma.
-    //   c) Média das distâncias (médio+anelar+mindinho) ao polegar > 0.35 — descarta 0 (laço O onde TODOS os dedos convergem ao polegar).
-    const middleToThumbDist3D =
-      dist3(worldLandmarks[LM.MIDDLE_TIP], worldLandmarks[LM.THUMB_TIP]) / palmSize;
-    const ringToThumbDist3D =
-      dist3(worldLandmarks[LM.RING_TIP], worldLandmarks[LM.THUMB_TIP]) / palmSize;
-    const pinkyToThumbDist3D =
-      dist3(worldLandmarks[LM.PINKY_TIP], worldLandmarks[LM.THUMB_TIP]) / palmSize;
-    const avgFingersToThumb = (middleToThumbDist3D + ringToThumbDist3D + pinkyToThumbDist3D) / 3;
+      // Todas as pontas devem estar perto do polegar (O-shape real). maxDist garante isso.
+      const maxDist2D = Math.max(
+        thumbIndexDist2D,
+        thumbMiddleDist2D,
+        thumbRingDist2D,
+        thumbPinkyDist2D,
+      );
 
-    if (
-      (is(st.thumb, 'E') || is(st.thumb, 'H')) &&
-      Math.abs(thumbLocalX) > 0.25 &&
-      avgFingersToThumb > 0.35
-    ) {
-      // 6 e 9 são o MESMO sinal, apenas espelhados verticalmente na tela.
-      // Comparação na tela: polegar acima/abaixo do PULSO (mais estável que junta do médio).
-      // Funciona em qualquer inclinação lateral da mão — o eixo Y da tela sempre aponta para cima.
-      const thumbAboveWrist = lm2d[LM.THUMB_TIP].y < lm2d[LM.WRIST].y;
-
-      if (thumbAboveWrist) return 6;
-      return 9;
+      if (handPointingUp && maxDist2D < 0.48) {
+        return 0;
+      }
     }
 
-    // 2. SEGUNDA OPÇÃO: Punho fechado (8).
-    // Inclui polegar E com indicador longe do polegar (falso positivo de E no punho).
-    if (is(st.thumb, 'C') || thumbDistToPalm3D < 0.65 || distToTip3D > 0.45) {
+    // 6/9: Thumb extends along hand axis (local Y > 0.6) + all fingers curled.
+    //   Pinch rejected by low thumbIndexDist2D.
+    //   6 vs 9: Two combined checks — hand axis orientation AND thumb position.
+    //   6: hand axis more HORIZONTAL (|dirX| > |dirY|) + thumb ABOVE fist.
+    //   9: hand axis more VERTICAL (|dirY| > |dirX|) + thumb BELOW fist.
+    const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
+    const thumbLocalY = localLm[LM.THUMB_TIP].y / palmSize;
+
+    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbLocalY > 0.6 && thumbIndexDist2D > 0.35) {
+      const fistCenterY =
+        (lm2d[LM.INDEX_MCP].y +
+          lm2d[LM.MIDDLE_MCP].y +
+          lm2d[LM.RING_MCP].y +
+          lm2d[LM.PINKY_MCP].y) /
+        4;
+      const thumbBelowFist = lm2d[LM.THUMB_TIP].y > fistCenterY;
+
+      const handDirX = (lm2d[LM.MIDDLE_MCP].x - lm2d[LM.WRIST].x) / palmSize2D;
+      const handDirY = (lm2d[LM.MIDDLE_MCP].y - lm2d[LM.WRIST].y) / palmSize2D;
+      const handMoreHorizontal = Math.abs(handDirX) > Math.abs(handDirY);
+
+      if (handMoreHorizontal && !thumbBelowFist) return 6;
+      if (!handMoreHorizontal && thumbBelowFist) return 9;
+    }
+
+    // Punho fechado (8).
+    if (is(st.thumb, 'C')) return 8;
+    if (
+      (is(st.thumb, 'E') || is(st.thumb, 'H')) &&
+      thumbDistToPalm3D < 0.5 &&
+      thumbIndexDist2D > 0.35
+    ) {
       return 8;
     }
   }
