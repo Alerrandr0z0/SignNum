@@ -347,14 +347,17 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     // Critérios:
     //   a) Polegar E ou H (estendido ou semi-estendido).
     //   b) Polegar longe do centro da palma (|x| > 0.25) — descarta punho (8) onde o polegar cruza a palma.
-    //   c) Disto-falange do médio longe do polegar (> 0.35) — descarta 0 (laço O onde todos os dedos tocam o polegar).
+    //   c) Dedos MÉDIO e ANELAR longes do polegar — descarta 0 (laço O onde TODOS os dedos tocam o polegar).
     const middleToThumbDist3D =
       dist3(worldLandmarks[LM.MIDDLE_TIP], worldLandmarks[LM.THUMB_TIP]) / palmSize;
+    const ringToThumbDist3D =
+      dist3(worldLandmarks[LM.RING_TIP], worldLandmarks[LM.THUMB_TIP]) / palmSize;
 
     if (
       (is(st.thumb, 'E') || is(st.thumb, 'H')) &&
       Math.abs(thumbLocalX) > 0.25 &&
-      middleToThumbDist3D > 0.35
+      middleToThumbDist3D > 0.3 &&
+      ringToThumbDist3D > 0.3
     ) {
       // 6 e 9 são o MESMO sinal, apenas espelhados verticalmente na tela.
       // Comparação na tela: polegar acima/abaixo do PULSO (mais estável que junta do médio).
