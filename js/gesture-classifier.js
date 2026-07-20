@@ -336,10 +336,12 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const thumbDistToPalm3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.MIDDLE_MCP]) / palmSize;
 
-    // Distância 3D da ponta do indicador até o polegar (ponta ou junta) para checar o laço
-    const distToTip3D = dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]);
-    const distToIP3D = dist3(worldLandmarks[LM.THUMB_IP], worldLandmarks[LM.INDEX_TIP]);
-    const thumbIndexDist3D = Math.min(distToTip3D, distToIP3D) / palmSize;
+    // Distância 3D da ponta do indicador até o polegar para checar o laço.
+    // Usamos APENAS a distância ponta-a-ponta (thumb_tip → index_tip), pois em um punho (8),
+    // o polegar cruza a palma e thumb_IP fica perto do indicador, gerando falso positivo.
+    // No laço 6/9 real, a ponta do indicador toca a ponta do polegar.
+    const distToTip3D =
+      dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]) / palmSize;
 
     // 1. PRIORIDADE: Se o polegar está estendido/semi-estendido e as pontas do indicador e polegar estão fisicamente próximas, é 6 ou 9.
     // Mas antes verificamos se NÃO é um 0 (laço O): no 0, o DEDO MÉDIO também está perto do polegar.
@@ -349,7 +351,7 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
 
     if (
       (is(st.thumb, 'E') || is(st.thumb, 'H')) &&
-      thumbIndexDist3D < 0.45 &&
+      distToTip3D < 0.35 &&
       middleToThumbDist3D > 0.35
     ) {
       // 6 e 9 são o MESMO sinal, apenas rotacionados na câmera.
@@ -362,12 +364,9 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
       if (handPointingDown) return 9;
     }
 
-    // 2. SEGUNDA OPÇÃO: Se não formou o laço do 6/9, e o polegar está curvado ou colado à palma, é o punho fechado (8).
-    if (
-      is(st.thumb, 'C') ||
-      thumbDistToPalm3D < 0.65 ||
-      (is(st.thumb, 'H') && thumbIndexDist3D > 0.4)
-    ) {
+    // 2. SEGUNDA OPÇÃO: Se não formou o laço do 6/9, é o punho fechado (8).
+    // Inclui polegar E com indicador longe do polegar (falso positivo de E no punho).
+    if (is(st.thumb, 'C') || thumbDistToPalm3D < 0.65 || distToTip3D > 0.4) {
       return 8;
     }
   }
