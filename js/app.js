@@ -179,7 +179,8 @@ function drawLandmarks(landmarks) {
   // Map from normalized video coordinates to canvas display pixels,
   // accounting for the video's object-fit: cover cropping.
   // This ensures the skeleton perfectly overlays the visible hand.
-  let mx, my;
+  let mx;
+  let my;
   if (STATE.crop) {
     const { visibleX, visibleY, visibleW, visibleH, vw, vh } = STATE.crop;
     mx = (lm) => ((lm.x * vw - visibleX) / visibleW) * w;
