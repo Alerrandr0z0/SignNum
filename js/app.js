@@ -135,9 +135,14 @@ async function initMediaPipe() {
     'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
   );
 
+  const isGitHub = window.location.hostname.includes('github.io');
+  const modelPath = isGitHub
+    ? '/SignNum/models/hand_landmarker.task'
+    : '/models/hand_landmarker.task';
+
   STATE.handLandmarker = await HandLandmarker.createFromOptions(vision, {
     baseOptions: {
-      modelAssetPath: 'models/hand_landmarker.task',
+      modelAssetPath: modelPath,
       delegate: 'GPU',
     },
     runningMode: 'VIDEO',
