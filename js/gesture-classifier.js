@@ -336,27 +336,31 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const thumbDistToPalm3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.MIDDLE_MCP]) / palmSize;
 
+    // Posição lateral do polegar no sistema de coordenadas local da palma.
+    // No 6/9, o polegar aponta para fora (|x| grande). No punho (8), cruza a palma (|x| pequeno).
+    const thumbLocalX = localLm[LM.THUMB_TIP].x / palmSize;
+
     // Distância 3D da ponta do indicador até o polegar para checar o laço.
-    // Usamos APENAS a distância ponta-a-ponta (thumb_tip → index_tip), pois em um punho (8),
-    // o polegar cruza a palma e thumb_IP fica perto do indicador, gerando falso positivo.
-    // No laço 6/9 real, a ponta do indicador toca a ponta do polegar.
+    // No laço 6/9, o indicador envolve o polegar (ponta perto, mas não necessariamente ponta-a-ponta).
+    // No punho (8), o indicador está enrolado na palma, longe do polegar.
     const distToTip3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.INDEX_TIP]) / palmSize;
 
-    // 1. PRIORIDADE: Se o polegar está estendido/semi-estendido e as pontas do indicador e polegar estão fisicamente próximas, é 6 ou 9.
-    // Mas antes verificamos se NÃO é um 0 (laço O): no 0, o DEDO MÉDIO também está perto do polegar.
-    // No 6/9, o médio está longe do polegar (só o indicador enrola).
+    // 1. PRIORIDADE: 6 ou 9 — polegar estendido/semi-estendido para fora da palma.
+    // Critérios:
+    //   a) Polegar E ou H (estendido ou semi-estendido).
+    //   b) Polegar longe do centro da palma (|x| > 0.25) — descarta punho (8) onde o polegar cruza a palma.
+    //   c) Disto-falange do médio longe do polegar (> 0.35) — descarta 0 (laço O onde todos os dedos tocam o polegar).
     const middleToThumbDist3D =
       dist3(worldLandmarks[LM.MIDDLE_TIP], worldLandmarks[LM.THUMB_TIP]) / palmSize;
 
     if (
       (is(st.thumb, 'E') || is(st.thumb, 'H')) &&
-      distToTip3D < 0.35 &&
+      Math.abs(thumbLocalX) > 0.25 &&
       middleToThumbDist3D > 0.35
     ) {
       // 6 e 9 são o MESMO sinal, apenas rotacionados na câmera.
-      // Checamos a posição da ponta do polegar em relação à junta do dedo médio (em coordenadas 2D da tela).
-      // No 6, o polegar aponta para cima na tela (menor Y que a junta). No 9, para baixo (maior Y que a junta).
+      // No 6, o polegar aponta para cima na tela (menor Y que a junta). No 9, para baixo (maior Y).
       const handPointingUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.MIDDLE_MCP].y;
       const handPointingDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.MIDDLE_MCP].y;
 
@@ -364,9 +368,9 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
       if (handPointingDown) return 9;
     }
 
-    // 2. SEGUNDA OPÇÃO: Se não formou o laço do 6/9, é o punho fechado (8).
+    // 2. SEGUNDA OPÇÃO: Punho fechado (8).
     // Inclui polegar E com indicador longe do polegar (falso positivo de E no punho).
-    if (is(st.thumb, 'C') || thumbDistToPalm3D < 0.65 || distToTip3D > 0.4) {
+    if (is(st.thumb, 'C') || thumbDistToPalm3D < 0.65 || distToTip3D > 0.45) {
       return 8;
     }
   }
