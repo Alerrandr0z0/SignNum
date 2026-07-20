@@ -208,15 +208,13 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const thumbRingDist3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.RING_TIP]) / palmSize;
 
-    // No 0, a mão aponta para CIMA (junta do médio acima do pulso) e o polegar aponta para CIMA.
-    // No 9, a mão está apontando para BAIXO (junta do médio abaixo do pulso).
-    const handPointingUp = lm2d[LM.MIDDLE_MCP].y < lm2d[LM.WRIST].y;
-    const thumbPointingUpOrMiddle =
-      lm2d[LM.THUMB_TIP].y < lm2d[LM.MIDDLE_MCP].y + 0.05 * palmSize2D;
+    // No 0, o polegar aponta para CIMA relativo à mão. No 9, para BAIXO.
+    // Usamos coordenadas locais da palma (rotation-invariante).
+    const thumbLocalY = localLm[LM.THUMB_TIP].y - localLm[LM.THUMB_MCP].y;
+    const handPointingUp = thumbLocalY > 0;
 
     if (
       handPointingUp &&
-      thumbPointingUpOrMiddle &&
       thumbIndexDist2D < 0.38 &&
       thumbMiddleDist2D < 0.44 &&
       thumbRingDist2D < 0.48 &&
@@ -359,13 +357,14 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
       Math.abs(thumbLocalX) > 0.25 &&
       middleToThumbDist3D > 0.35
     ) {
-      // 6 e 9 são o MESMO sinal, apenas rotacionados na câmera.
-      // No 6, o polegar aponta para cima na tela (menor Y que a junta). No 9, para baixo (maior Y).
-      const handPointingUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.MIDDLE_MCP].y;
-      const handPointingDown = lm2d[LM.THUMB_TIP].y > lm2d[LM.MIDDLE_MCP].y;
+      // 6 e 9 são o MESMO sinal, apenas rotacionados.
+      // Usamos coordenadas locais da palma (rotation-invariante):
+      // No 6, o polegar aponta para CIMA relativo à mão (thumbLocalY > 0).
+      // No 9, o polegar aponta para BAIXO relativo à mão (thumbLocalY < 0).
+      const thumbLocalY = localLm[LM.THUMB_TIP].y - localLm[LM.THUMB_MCP].y;
 
-      if (handPointingUp) return 6;
-      if (handPointingDown) return 9;
+      if (thumbLocalY > 0) return 6;
+      if (thumbLocalY < 0) return 9;
     }
 
     // 2. SEGUNDA OPÇÃO: Punho fechado (8).
