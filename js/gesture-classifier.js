@@ -136,7 +136,7 @@ function getFingerStates(localLm, palmSize) {
     // Curled: displacement is small AND finger is bent.
     // Two tiers: very small displacement always curled; moderate displacement only if finger is bent.
     if (absDiff < thresholdCurl) return 'C';
-    if (absDiff < 0.35 && straightness < 0.6) return 'C';
+    if (absDiff < 0.4 && straightness < 0.65) return 'C';
 
     return 'H';
   };
@@ -234,8 +234,13 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     // The O must be LARGE: thumb tip far from wrist. Pinch clusters near the palm.
     const thumbToWristDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.WRIST]) / palmSize2D;
 
+    // Polegar deve estar RECOLHIDO (MCP→TIP curto). Se o polegar está estendido para fora
+    // (como em 6/9), a distância MCP→TIP é grande → não é um O verdadeiro.
+    const thumbMcpTipDist2D = dist2(lm2d[LM.THUMB_MCP], lm2d[LM.THUMB_TIP]) / palmSize2D;
+
     if (
       thumbToWristDist2D > 0.7 &&
+      thumbMcpTipDist2D < 0.4 &&
       maxThumbDist2D < 0.45 &&
       thumbIndexDist3D < 0.55 &&
       thumbMiddleDist3D < 0.6 &&
@@ -431,20 +436,26 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
         thumbPinkyDist2D,
       );
 
-      if (handPointingUp && maxDist2D < 0.48) {
+      const thumbMcpTipDist2D = dist2(lm2d[LM.THUMB_MCP], lm2d[LM.THUMB_TIP]) / palmSize2D;
+
+      if (handPointingUp && maxDist2D < 0.48 && thumbMcpTipDist2D < 0.4) {
         return 0;
       }
     }
 
-    // 6/9: Thumb extends along hand axis (local Y > 0.6) + all fingers curled.
+    // 6/9: Thumb extends outward from palm + all fingers curled.
     //   Pinch rejected by low thumbIndexDist2D.
     //   6 vs 9: Two combined checks — hand axis orientation AND thumb position.
     //   6: hand axis more HORIZONTAL (|dirX| > |dirY|) + thumb ABOVE fist.
     //   9: hand axis more VERTICAL (|dirY| > |dirX|) + thumb BELOW fist.
     const thumbIndexDist2D = dist2(lm2d[LM.THUMB_TIP], lm2d[LM.INDEX_TIP]) / palmSize2D;
-    const thumbLocalY = localLm[LM.THUMB_TIP].y / palmSize;
 
-    if ((is(st.thumb, 'E') || is(st.thumb, 'H')) && thumbLocalY > 0.6 && thumbIndexDist2D > 0.35) {
+    // Polegar estendido: comprimento 2D MCP→TIP grande + deslocamento lateral
+    const thumbLen2D = dist2(lm2d[LM.THUMB_MCP], lm2d[LM.THUMB_TIP]) / palmSize2D;
+    const thumbLateral = Math.abs(lm2d[LM.THUMB_TIP].x - lm2d[LM.THUMB_MCP].x) / palmSize2D;
+    const thumbExtendedSS = thumbLen2D > 0.35 && thumbLateral > 0.2;
+
+    if ((is(st.thumb, 'E') || is(st.thumb, 'H') || thumbExtendedSS) && thumbIndexDist2D > 0.35) {
       const fistCenterY =
         (lm2d[LM.INDEX_MCP].y +
           lm2d[LM.MIDDLE_MCP].y +
