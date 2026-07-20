@@ -182,7 +182,7 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const vKnuckles = sub(worldLandmarks[LM.PINKY_MCP], worldLandmarks[LM.INDEX_MCP]);
     const zAxis = normalize(cross(yAxis, vKnuckles));
 
-    const isPalm = isRightHand ? zAxis.z < 0.15 : zAxis.z > -0.15;
+    const isPalm = isRightHand ? zAxis.z < 0.3 : zAxis.z > -0.3;
     if (!isPalm) return null;
   }
 
@@ -208,10 +208,9 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
     const thumbRingDist3D =
       dist3(worldLandmarks[LM.THUMB_TIP], worldLandmarks[LM.RING_TIP]) / palmSize;
 
-    // No 0, o polegar aponta para CIMA relativo à mão. No 9, para BAIXO.
-    // Usamos coordenadas locais da palma (rotation-invariante).
-    const thumbLocalY = localLm[LM.THUMB_TIP].y - localLm[LM.THUMB_MCP].y;
-    const handPointingUp = thumbLocalY > 0;
+    // No 0, a mão aponta para CIMA na tela. No 9, para BAIXO.
+    // Usamos comparação na tela (polegar vs pulso) — mais estável que coordenadas locais.
+    const handPointingUp = lm2d[LM.THUMB_TIP].y < lm2d[LM.WRIST].y;
 
     if (
       handPointingUp &&
@@ -357,14 +356,13 @@ function detectNumber(st, lm2d, localLm, palmSize, isRightHand, worldLandmarks) 
       Math.abs(thumbLocalX) > 0.25 &&
       middleToThumbDist3D > 0.35
     ) {
-      // 6 e 9 são o MESMO sinal, apenas rotacionados.
-      // Usamos coordenadas locais da palma (rotation-invariante):
-      // No 6, o polegar aponta para CIMA relativo à mão (thumbLocalY > 0).
-      // No 9, o polegar aponta para BAIXO relativo à mão (thumbLocalY < 0).
-      const thumbLocalY = localLm[LM.THUMB_TIP].y - localLm[LM.THUMB_MCP].y;
+      // 6 e 9 são o MESMO sinal, apenas espelhados verticalmente na tela.
+      // Comparação na tela: polegar acima/abaixo do PULSO (mais estável que junta do médio).
+      // Funciona em qualquer inclinação lateral da mão — o eixo Y da tela sempre aponta para cima.
+      const thumbAboveWrist = lm2d[LM.THUMB_TIP].y < lm2d[LM.WRIST].y;
 
-      if (thumbLocalY > 0) return 6;
-      if (thumbLocalY < 0) return 9;
+      if (thumbAboveWrist) return 6;
+      return 9;
     }
 
     // 2. SEGUNDA OPÇÃO: Punho fechado (8).
